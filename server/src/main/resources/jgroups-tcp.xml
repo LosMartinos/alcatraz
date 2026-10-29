@@ -1,0 +1,21 @@
+<config xmlns="urn:org:jgroups">
+    <!-- Transport and static discovery. Addresses are supplied by JGroupsConfig. -->
+    <TCP bind_addr="127.0.0.1" bind_port="7800" port_range="0" enable_diagnostics="false"/>
+    <NON_BLOCKING_SENDS/>
+    <TCPPING initial_hosts="127.0.0.1[7800],127.0.0.1[7801]" port_range="0"/>
+
+    <!-- Failure detection and membership; no partition merging. -->
+    <FD_ALL3 timeout="6000" interval="1000"/>
+    <VERIFY_SUSPECT2 timeout="1500"/>
+    <BARRIER/>
+    <pbcast.NAKACK2 use_mcast_xmit="false"/>
+    <UNICAST3/>
+    <pbcast.STABLE/>
+    <pbcast.GMS/>
+
+    <!-- Flow control, message fragmentation and full state transfer. -->
+    <UFC/>
+    <MFC/>
+    <FRAG2 frag_size="60K"/>
+    <pbcast.STATE_TRANSFER/>
+</config>

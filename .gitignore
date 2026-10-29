@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Supplied course files must never be published.
+vendor/alcatraz-java/
+**/resources/static/alcatraz-java/
