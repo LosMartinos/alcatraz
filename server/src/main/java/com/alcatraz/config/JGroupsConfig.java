@@ -9,6 +9,16 @@ import org.springframework.core.io.ClassPathResource;
 
 @Configuration
 public class JGroupsConfig {
+    /**
+     * Creates the TCP/TCPPING channel using the configured addresses and timeouts.
+     *
+     * @param bindAddress local cluster address
+     * @param port local cluster port
+     * @param peers static cluster host list
+     * @param failureTimeout failure-detection timeout in milliseconds
+     * @param timeout timeout in milliseconds
+     * @return configured cluster channel
+     */
     @Bean
     public JChannel jChannel(
             @Value("${alcatraz.cluster.bind-address}") String bindAddress,

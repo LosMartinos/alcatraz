@@ -42,6 +42,16 @@ public class ClusterMembershipService implements Receiver {
     private long confirmedVersion = -1;
     private ViewId confirmedView;
 
+    /**
+     * Stores the cluster services and connection settings.
+     *
+     * @param channel cluster channel
+     * @param registry game registry
+     * @param replica replication receiver
+     * @param events application event publisher
+     * @param clusterName cluster name
+     * @param timeout timeout in milliseconds
+     */
     public ClusterMembershipService(JChannel channel, GameRegistry registry, ReplicationListener replica,
             ApplicationEventPublisher events,
             @Value("${alcatraz.cluster.name}") String clusterName,
@@ -54,6 +64,9 @@ public class ClusterMembershipService implements Receiver {
         this.timeout = timeout;
     }
 
+    /**
+     * Joins the cluster and starts the recovery worker.
+     */
     @EventListener(ApplicationReadyEvent.class)
     public void connect() throws Exception {
         dispatcher = new RpcDispatcher(channel, replica).setReceiver(this);
@@ -62,6 +75,11 @@ public class ClusterMembershipService implements Receiver {
         recovery.scheduleWithFixedDelay(this::recover, 0, 1, TimeUnit.SECONDS);
     }
 
+    /**
+     * Updates membership and marks primary-role changes.
+     *
+     * @param newView updated cluster membership
+     */
     @Override
     public void viewAccepted(View newView) {
         // The first server starts empty; joining servers must receive a snapshot.
@@ -77,22 +95,39 @@ public class ClusterMembershipService implements Receiver {
         // Do not block JGroups' delivery thread on RPCs or application locks.
     }
 
+    /**
+     * Checks whether this node is first in the current membership view.
+     *
+     * @return true when this node is the primary
+     */
     public boolean isPrimary() {
         View current = view;
         return current != null && channel.getAddress() != null
                 && current.getMembers().getFirst().equals(channel.getAddress());
     }
 
+    /**
+     * Checks whether this node is ready to send start callbacks.
+     *
+     * @return true when this node can send start callbacks
+     */
     public boolean canNotify() {
         return connected && isPrimary() && primaryReady;
     }
 
-    /** Service methods synchronize on this object for the entire operation. */
+    /**
+     * Confirms replication before a service operation.
+     */
     public synchronized void synchronizeState() {
         ensureReplicated(null);
     }
 
-    /** Apply and replicate a change while holding the same service-operation lock. */
+    /**
+     * Applies and replicates a change; null removes the game.
+     *
+     * @param gameId game ID
+     * @param state updated game, or null to remove it
+     */
     public synchronized void change(String gameId, GameState state) {
         requirePrimary();
         ReplicationEvent change = registry.change(gameId, state);
@@ -100,12 +135,20 @@ public class ClusterMembershipService implements Receiver {
         ensureReplicated(change);
     }
 
+    /**
+     * Checks that this node is a ready primary.
+     */
     public void requirePrimary() {
         if (!connected || !isPrimary() || !primaryReady || !replica.ready()) {
             throw new NotPrimaryException("Use the current primary; this server is a backup or is synchronizing");
         }
     }
 
+    /**
+     * Waits for current peers to confirm the local version, up to the configured timeout.
+     *
+     * @param change change to replicate, or null to confirm the current version
+     */
     private void ensureReplicated(ReplicationEvent change) {
         requirePrimary();
         long version = registry.snapshot().version();
@@ -160,6 +203,9 @@ public class ClusterMembershipService implements Receiver {
         }
     }
 
+    /**
+     * Queues start notifications after replication or promotion.
+     */
     private void publishStarts() {
         if (promotionPending) {
             promotionPending = false;
@@ -173,6 +219,9 @@ public class ClusterMembershipService implements Receiver {
         }
     }
 
+    /**
+     * Fetches missing state or finishes promotion in the background.
+     */
     private void recover() {
         try {
             if (!connected) return;
@@ -196,6 +245,11 @@ public class ClusterMembershipService implements Receiver {
         }
     }
 
+    /**
+     * Writes a complete local snapshot for JGroups state transfer.
+     *
+     * @param output destination for the snapshot
+     */
     @Override
     public void getState(OutputStream output) throws Exception {
         if (!replica.ready()) throw new IllegalStateException("State is not synchronized");
@@ -204,6 +258,11 @@ public class ClusterMembershipService implements Receiver {
         objects.flush();
     }
 
+    /**
+     * Loads the snapshot received through JGroups.
+     *
+     * @param input stream containing the snapshot
+     */
     @Override
     public void setState(InputStream input) throws Exception {
         var objects = new ObjectInputStream(input);
@@ -211,6 +270,9 @@ public class ClusterMembershipService implements Receiver {
         log.info("Installed registration state at version {}", registry.snapshot().version());
     }
 
+    /**
+     * Stops recovery and closes the cluster connection.
+     */
     @PreDestroy
     public void disconnect() {
         connected = false;

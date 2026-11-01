@@ -23,6 +23,14 @@ public class ClientNotifierService {
     private final long retryMs;
     private final long windowMs;
 
+    /**
+     * Stores the HTTP client and notification retry settings.
+     *
+     * @param client HTTP client for callbacks
+     * @param cluster cluster service
+     * @param retryMs retry interval in milliseconds
+     * @param windowMs retry window in milliseconds
+     */
     public ClientNotifierService(RestClient client, ClusterMembershipService cluster,
             @Value("${alcatraz.notification.retry-ms}") long retryMs,
             @Value("${alcatraz.notification.window-ms}") long windowMs) {
@@ -33,11 +41,21 @@ public class ClientNotifierService {
         this.windowMs = windowMs;
     }
 
+    /**
+     * Cancels notification jobs when this node loses its primary role.
+     *
+     * @param view updated cluster membership
+     */
     @EventListener
     public synchronized void membershipChanged(View view) {
         if (!cluster.isPrimary()) sender.shutdownNow();
     }
 
+    /**
+     * Queues a start callback for each player.
+     *
+     * @param event games whose players should be notified
+     */
     @EventListener
     public synchronized void notifyStarted(StartNotification event) {
         if (!cluster.canNotify()) return;
@@ -53,6 +71,14 @@ public class ClientNotifierService {
         }
     }
 
+    /**
+     * Sends a start callback and retries failures until expiry or cancellation.
+     *
+     * @param jobs executor for notification retries
+     * @param callbackUrl client callback base URL
+     * @param payload game-start details
+     * @param deadline retry deadline measured by System.nanoTime()
+     */
     private void deliver(ScheduledExecutorService jobs, String callbackUrl,
             GameStartedPayload payload, long deadline) {
         if (jobs.isShutdown() || !cluster.canNotify()) return;
@@ -77,6 +103,9 @@ public class ClientNotifierService {
         }
     }
 
+    /**
+     * Cancels notification jobs and stops the workers.
+     */
     @PreDestroy
     public synchronized void close() {
         sender.shutdownNow();

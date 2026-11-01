@@ -1,6 +1,6 @@
 <config xmlns="urn:org:jgroups">
     <!-- Transport and static discovery. Addresses are supplied by JGroupsConfig. -->
-    <TCP bind_addr="127.0.0.1" bind_port="7800" port_range="0" enable_diagnostics="false"/>
+    <TCP bind_addr="127.0.0.1" bind_port="7800" port_range="0" diag.enabled="false"/>
     <NON_BLOCKING_SENDS/>
     <TCPPING initial_hosts="127.0.0.1[7800],127.0.0.1[7801]" port_range="0"/>
 

@@ -8,6 +8,13 @@ import org.springframework.web.client.RestClient;
 
 @Configuration
 public class RestClientConfig {
+    /**
+     * Creates the HTTP client with connection and response timeouts.
+     *
+     * @param builder HTTP client builder
+     * @param timeout timeout in milliseconds
+     * @return configured HTTP client
+     */
     @Bean
     public RestClient restClient(RestClient.Builder builder,
             @Value("${alcatraz.notification.http-timeout-ms}") int timeout) {
