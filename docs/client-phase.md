@@ -1,8 +1,8 @@
 # Client phase
 
-Add the client as the second Maven module in the later implementation phase.
-The server contract is fixed in the root README. No client implementation is
-included in the server phase.
+The client is implemented as the second Maven module, in `client/`.
+Build and launch instructions are in the root README. The implementation uses
+Swing, the JDK HTTP client/listener, and Jackson for the agreed JSON messages.
 
 ## Lobby and startup
 

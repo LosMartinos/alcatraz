@@ -1,23 +1,25 @@
-# Alcatraz registration server
+# Alcatraz
 
 Two identical Spring Boot processes replicate their in-memory registration state
 through JGroups TCP/TCPPING. The oldest member of the current view is primary.
 All four game endpoints, including GET, return 503 on backups and while a node
 is initializing. The server never receives game moves.
 
-The server is implemented in the `server` Maven module. The client is deferred;
-its agreed behavior is recorded in [docs/client-phase.md](docs/client-phase.md).
+The `server` and `client` Maven modules run as separate processes. The client uses
+a Swing lobby and the supplied Alcatraz game window. Its behavior is recorded in
+[docs/client-phase.md](docs/client-phase.md).
 
 ## Build and supplied files
 
 Use JDK 21 and Maven, from the repository root:
 
 ```powershell
-mvn "-Dmaven.test.skip=true" package
+mvn package
 ```
 
-This compiles/packages the server without compiling or running tests. The existing
-prototype test and its dependency are retained; no new tests are included.
+This builds both modules and runs the server-flow and client networking/ordering
+tests. Use `mvn -pl server package` to build just the server without the course
+library, or `mvn -pl client package` to build just the client.
 
 Obtain the distribution from the course and place it locally under:
 
@@ -33,6 +35,54 @@ vendor/alcatraz-java/
 **The course forbids publishing these files.** This directory is ignored by Git,
 must not be force-added, and is not packaged into the server. The server builds
 without it. The former resources/static/alcatraz-java location is also ignored.
+The executable client JAR includes the library for local use: do not publish the
+client JAR either. All Maven `target` directories are ignored. Maven may warn
+about the local system dependency; this keeps the course library out of public
+repositories and avoids a separate installation step.
+
+## Run the client
+
+After starting the registration server(s), open one terminal per player:
+
+```powershell
+java -jar client/target/client-1.jar --callback-port=9001
+java -jar client/target/client-1.jar --callback-port=9002
+```
+
+Enter the same game ID and different names, then Register. The lobby polls the
+player list. Cancel removes a waiting registration; Start is enabled with at
+least two players. Each process opens its own Alcatraz window. The window title
+and lobby show whose turn is awaited. Closing the game window hides it; Show game
+reopens it. Cancel before exiting a waiting lobby. Exiting an active client ends
+that player's process; crash/restart recovery is outside scope.
+
+For separate LAN machines, supply the registration server addresses and the
+client machine's reachable LAN address:
+
+```powershell
+java -jar client/target/client-1.jar "--servers=http://192.168.1.10:8080,http://192.168.1.11:8080" --callback-host=192.168.1.20 --callback-port=9001
+```
+
+| Client option | Default |
+| --- | --- |
+| `--servers` | `http://127.0.0.1:8080,http://127.0.0.1:8081` |
+| `--callback-host` | Local address used to reach the first server |
+| `--callback-port` | An automatically selected free port |
+| `--registration-timeout-ms` | `20000` |
+
+Use an explicit callback port for the LAN demo and allow it through the firewall.
+Override the host when automatic detection selects the wrong interface. With
+loopback server addresses the detected callback host is also loopback. Keep the
+registration timeout above the configured server cluster timeout. Registration,
+cancellation and start retry temporary connection failures and 503 responses;
+the selected name and game stay locked while an outcome is uncertain.
+
+Moves travel directly between clients. Each peer has its own queue; network
+failures and 5xx responses retry every two seconds with a three-second HTTP
+timeout. A 4xx or unexpected response is logged and dropped for that recipient.
+Early and out-of-order moves wait for initialization or missing predecessors.
+For a cable-pull demo, temporarily disconnect one client, make available moves,
+then reconnect it and verify the queued moves arrive and play resumes.
 
 ## Local and LAN deployment
 
@@ -87,7 +137,7 @@ Actual failover time also depends on scheduling and network conditions.
 | Request | Success |
 | --- | --- |
 | POST /games/{gameId}/players | 200; body `{"players":[...]}`; response header `Authorization: Bearer <token>` |
-| DELETE /games/{gameId}/players/{playerName} | 204; no body |
+| DELETE /games/{gameId}/players/{playerName} | 200; no body |
 | POST /games/{gameId}/start | 200; no body |
 | GET /games/{gameId} | 200; `{"status":"WAITING","players":[...]}` or STARTED |
 
@@ -111,7 +161,7 @@ conflicts, a fifth player, and changes to a started roster return 409. Starting
 with fewer than two players returns 400. A valid repeated start returns 200
 without initiating another notification round.
 
-Cancelling an absent player or unknown game returns 204 with a non-empty Bearer
+Cancelling an absent player or unknown game returns 200 with a non-empty Bearer
 token; the old token cannot be checked after the registration is removed.
 Cancellation in a started game returns 409. Empty waiting games are removed;
 started games stay in memory until shutdown.
@@ -162,7 +212,7 @@ the repeated start does not. Restart terminal 1 with its original command: it
 joins as backup, transfers state and returns 503 for game requests.
 
 For the presentation, use separate LAN machines. A temporary client cable
-disconnection exercises the later client's queued move delivery. A partition
+disconnection exercises the client's queued move delivery. A partition
 between the two registration servers can create two primaries and is outside scope.
 
 ## Replication and recovery
