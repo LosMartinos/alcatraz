@@ -34,7 +34,9 @@ public class ClientNotifierService {
     public ClientNotifierService(RestClient client, ClusterMembershipService cluster,
             @Value("${alcatraz.notification.retry-ms}") long retryMs,
             @Value("${alcatraz.notification.window-ms}") long windowMs) {
-        if (retryMs <= 0 || windowMs <= 0) throw new IllegalArgumentException("Retry times must be positive");
+        if (retryMs <= 0 || windowMs <= 0) {
+            throw new IllegalArgumentException("Retry times must be positive");
+        }
         this.client = client;
         this.cluster = cluster;
         this.retryMs = retryMs;
@@ -48,7 +50,9 @@ public class ClientNotifierService {
      */
     @EventListener
     public synchronized void membershipChanged(View view) {
-        if (!cluster.isPrimary()) sender.shutdownNow();
+        if (!cluster.isPrimary()) {
+            sender.shutdownNow();
+        }
     }
 
     /**
@@ -58,8 +62,12 @@ public class ClientNotifierService {
      */
     @EventListener
     public synchronized void notifyStarted(StartNotification event) {
-        if (!cluster.canNotify()) return;
-        if (sender.isShutdown()) sender = Executors.newScheduledThreadPool(4);
+        if (!cluster.canNotify()) {
+            return;
+        }
+        if (sender.isShutdown()) {
+            sender = Executors.newScheduledThreadPool(4);
+        }
         // Jobs keep their own executor. Cancelled jobs cannot restart after a later promotion.
         ScheduledExecutorService jobs = sender;
         for (var game : event.games()) {
@@ -81,7 +89,9 @@ public class ClientNotifierService {
      */
     private void deliver(ScheduledExecutorService jobs, String callbackUrl,
             GameStartedPayload payload, long deadline) {
-        if (jobs.isShutdown() || !cluster.canNotify()) return;
+        if (jobs.isShutdown() || !cluster.canNotify()) {
+            return;
+        }
         if (System.nanoTime() >= deadline) {
             log.warn("Start notification expired for game {}, player {}", payload.gameId(), payload.yourPlayerId());
             return;

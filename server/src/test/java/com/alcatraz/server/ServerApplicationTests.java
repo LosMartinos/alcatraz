@@ -81,7 +81,9 @@ class ServerApplicationTests {
 
     @AfterEach
     void tearDown() {
-        if (callbacks != null) callbacks.stop(0);
+        if (callbacks != null) {
+            callbacks.stop(0);
+        }
     }
 
     @Test

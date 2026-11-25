@@ -78,11 +78,20 @@ public class GameRegistry {
      * @param event replication event
      */
     public synchronized void apply(ReplicationEvent event) {
-        if (!initialized) return;
-        if (event.version() <= version) return;
-        if (event.version() != version + 1) return;
-        if (event.state() == null) games.remove(event.gameId());
-        else games.put(event.gameId(), event.state());
+        if (!initialized) {
+            return;
+        }
+        if (event.version() <= version) {
+            return;
+        }
+        if (event.version() != version + 1) {
+            return;
+        }
+        if (event.state() == null) {
+            games.remove(event.gameId());
+        } else {
+            games.put(event.gameId(), event.state());
+        }
         version = event.version();
     }
 
@@ -93,7 +102,9 @@ public class GameRegistry {
      */
     public synchronized void install(Snapshot snapshot) {
         // State transfer can race with newer RPCs. Never roll a replica back.
-        if (initialized && snapshot.version() < version) return;
+        if (initialized && snapshot.version() < version) {
+            return;
+        }
         games.clear();
         games.putAll(snapshot.games());
         version = snapshot.version();

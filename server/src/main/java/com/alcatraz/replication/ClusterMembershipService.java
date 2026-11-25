@@ -83,7 +83,9 @@ public class ClusterMembershipService implements Receiver {
     @Override
     public void viewAccepted(View newView) {
         // The first server starts empty; joining servers must receive a snapshot.
-        if (view == null && newView.size() == 1) registry.initializeEmpty();
+        if (view == null && newView.size() == 1) {
+            registry.initializeEmpty();
+        }
         boolean wasPrimary = isPrimary();
         view = newView;
         if (wasPrimary != isPrimary()) {
@@ -131,7 +133,9 @@ public class ClusterMembershipService implements Receiver {
     public synchronized void change(String gameId, GameState state) {
         requirePrimary();
         ReplicationEvent change = registry.change(gameId, state);
-        if (state != null && state.status() == GameStatus.STARTED) pendingStarts.add(gameId);
+        if (state != null && state.status() == GameStatus.STARTED) {
+            pendingStarts.add(gameId);
+        }
         ensureReplicated(change);
     }
 
@@ -165,7 +169,9 @@ public class ClusterMembershipService implements Receiver {
                 List<Address> peers = targetView.getMembers().stream()
                         .filter(address -> !address.equals(channel.getAddress())).toList();
                 long remaining = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime());
-                if (remaining <= 0) throw new ReplicationUnavailableException("Replication timed out; retry the request");
+                if (remaining <= 0) {
+                    throw new ReplicationUnavailableException("Replication timed out; retry the request");
+                }
                 RspList<Long> responses = peers.isEmpty() ? new RspList<>()
                         : dispatcher.callRemoteMethods(peers, sendChange ? "applyChange" : "acknowledge",
                         new Object[]{sendChange ? change : version},
@@ -176,7 +182,9 @@ public class ClusterMembershipService implements Receiver {
                 View after = view;
                 boolean complete = true;
                 for (Address peer : after.getMembers()) {
-                    if (peer.equals(channel.getAddress())) continue;
+                    if (peer.equals(channel.getAddress())) {
+                        continue;
+                    }
                     var response = responses.get(peer);
                     if (response == null || !response.wasReceived() || response.hasException()
                             || response.getValue() == null || response.getValue() != version) {
@@ -224,12 +232,18 @@ public class ClusterMembershipService implements Receiver {
      */
     private void recover() {
         try {
-            if (!connected) return;
+            if (!connected) {
+                return;
+            }
             if (!isPrimary()) {
-                if (!replica.ready()) channel.getState(view.getMembers().getFirst(), timeout);
+                if (!replica.ready()) {
+                    channel.getState(view.getMembers().getFirst(), timeout);
+                }
             } else if (registry.initialized()) {
                 synchronized (this) {
-                    if (!isPrimary()) return;
+                    if (!isPrimary()) {
+                        return;
+                    }
                     if (!primaryReady) {
                         // Keep the last complete state; callers retry unacknowledged changes.
                         replica.preparePromotion();
@@ -252,7 +266,9 @@ public class ClusterMembershipService implements Receiver {
      */
     @Override
     public void getState(OutputStream output) throws Exception {
-        if (!replica.ready()) throw new IllegalStateException("State is not synchronized");
+        if (!replica.ready()) {
+            throw new IllegalStateException("State is not synchronized");
+        }
         var objects = new ObjectOutputStream(output);
         objects.writeObject(registry.snapshot());
         objects.flush();
@@ -278,6 +294,8 @@ public class ClusterMembershipService implements Receiver {
         connected = false;
         recovery.shutdownNow();
         channel.close();
-        if (dispatcher != null) dispatcher.stop();
+        if (dispatcher != null) {
+            dispatcher.stop();
+        }
     }
 }
